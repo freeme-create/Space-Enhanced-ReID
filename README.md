@@ -55,11 +55,7 @@ center_loss_val, shared_centers, (dist_ap, dist_an, dist_pn) = center_criterion(
 centroidm_loss_val, _, _ = centroidm_criterion(
     dist_ap=dist_ap, 
     dist_an=dist_an, 
-    dist_pn=dist_pn,
-    shared_centers=shared_centers,  
-    features=features,              
-    labels=target,                  
-    cam_labels=target_cam           
+    dist_pn=dist_pn,         
 )
 
 # Combine losses
@@ -126,11 +122,14 @@ clean_dist_mat = FeatureSpatialMasks.mask_2d(dist_mat, is_real)
 Our dynamic evaluation centroid construction logic is inspired by the foundational work on centroid-based image retrieval. We significantly extend their approach by introducing a **strict cross-camera protocol** to prevent same-camera shortcuts during testing. We sincerely respect and thank the authors for their contributions:
 
 ```bibtex
-@article{Wieczorek2021OnTU,
+@inproceedings{Wieczorek2021OnTU,
   title={On the Unreasonable Effectiveness of Centroids in Image Retrieval},
-  author={Mikolaj Wieczorek and Barbara Rychalska and Jacek Dabrowski},
-  journal={ArXiv},
+  author={Wieczorek, Miko{\l}aj and Rychalska, Barbara and D{\k{a}}browski, Jacek},
+  booktitle={Neural Information Processing},
+  series={Lecture Notes in Computer Science},
+  volume={13111},
+  publisher={Springer, Cham},
   year={2021},
-  volume={abs/2104.13643}
+  doi={10.1007/978-3-030-92273-3_18}
 }
 ```
