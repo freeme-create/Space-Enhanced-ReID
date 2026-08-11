@@ -123,13 +123,14 @@ Our dynamic evaluation centroid construction logic is inspired by the foundation
 
 ```bibtex
 @inproceedings{Wieczorek2021OnTU,
-  title={On the Unreasonable Effectiveness of Centroids in Image Retrieval},
-  author={Wieczorek, Miko{\l}aj and Rychalska, Barbara and D{\k{a}}browski, Jacek},
-  booktitle={Neural Information Processing},
-  series={Lecture Notes in Computer Science},
-  volume={13111},
-  publisher={Springer, Cham},
-  year={2021},
-  doi={10.1007/978-3-030-92273-3_18}
+   author = {Wieczorek, Mikołaj and Rychalska, Barbara and Dąbrowski, Jacek},
+   title = {On the unreasonable effectiveness of centroids in image retrieval},
+   booktitle = {Neural Information Processing: 28th International Conference, ICONIP 2021, Sanur, Bali, Indonesia, December 8–12, 2021, Proceedings, Part IV 28},
+   volume={13111},
+   publisher = {Springer},
+   pages = {212-223},
+   year = {2021},
+   type = {Conference Proceedings},
+   doi={10.1007/978-3-030-92273-3_18}
 }
 ```
