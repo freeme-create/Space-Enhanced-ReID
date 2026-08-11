@@ -99,86 +99,37 @@ class CenterLoss(nn.Module):
         return loss, self.centers
 
 class CentroidMLoss(nn.Module):
-    """
-    CentroidM Loss (Centr_1 Module)
-    Leverages global proxies for hard-negative mining with dynamic routing.
-    """
-
-    def __init__(self, num_classes=751, feat_dim=256, margin=None, dist_metric='euclidean'):
+    def __init__(self, margin=None, num_class=751, use_gpu=True, num_proxies=3):
         super(CentroidMLoss, self).__init__()
-        self.num_classes = num_classes
-        self.feat_dim = feat_dim
+        self.num_classes = num_class
+        self.num_proxies = num_proxies
         self.margin = margin
-        self.dist_metric = dist_metric.lower()
-
-        # Learnable global proxies (centers)
-        self.centers = nn.Parameter(torch.randn(self.num_classes, self.feat_dim))
-        nn.init.normal_(self.centers, 0, 0.01)
-
         if margin is not None:
             self.ranking_loss = nn.MarginRankingLoss(margin=margin)
         else:
             self.ranking_loss = nn.SoftMarginLoss()
 
-    def compute_distance(self, x, y):
-        """Computes distance based on selected metric."""
-        if self.dist_metric == 'euclidean':
-            m, n = x.size(0), y.size(0)
-            xx = torch.pow(x, 2).sum(1, keepdim=True).expand(m, n)
-            yy = torch.pow(y, 2).sum(1, keepdim=True).expand(n, m).t()
-            dist = xx + yy - 2 * torch.matmul(x, y.t())
-            return dist.clamp(min=1e-12).sqrt()
-        elif self.dist_metric == 'cosine':
-            x_norm = F.normalize(x, p=2, dim=1)
-            y_norm = F.normalize(y, p=2, dim=1)
-            sim = torch.matmul(x_norm, y_norm.t())
-            return 1.0 - sim
-        else:
-            raise ValueError(f"Unsupported distance metric: {self.dist_metric}")
+    def __call__(self, dist_ap, dist_an, dist_pn,
+                 current_epoch=None, max_epoch=None, factor=3, indx=1, last_gap=45):
 
-    def forward(self, features, labels, current_epoch=None, max_epoch=None, factor=3.0, indx=1, last_gap=45):
-        batch_size = features.size(0)
-
-        # 1. Compute distances between batch instances and all global centers
-        dist_mat = self.compute_distance(features, self.centers)
-
-        # 2. Setup masks for positive and negative centers
-        classes = torch.arange(self.num_classes).long().to(features.device)
-        is_pos = labels.unsqueeze(1).expand(batch_size, self.num_classes).eq(
-            classes.expand(batch_size, self.num_classes))
-
-        # 3. Mine anchor-positive (ap) and anchor-negative (an) center distances
-        dist_ap = dist_mat[is_pos].view(batch_size)
-        dist_an, relative_n_inds = torch.min(dist_mat + is_pos.float() * 1e5, 1)
-
-        # 4. Mine positive-center to negative-center distance (pn) for structural routing
-        pos_centers = self.centers[labels]
-        neg_centers = self.centers[relative_n_inds]
-
-        if self.dist_metric == 'euclidean':
-            dist_pn = F.pairwise_distance(pos_centers, neg_centers, p=2)
-        elif self.dist_metric == 'cosine':
-            dist_pn = 1.0 - F.cosine_similarity(pos_centers, neg_centers, dim=1)
-
-        # 5. Dynamic Routing / Annealing Logic
         randN = 0.25
-        if current_epoch is not None and max_epoch is not None:
+        if current_epoch != None and max_epoch != None:
             if current_epoch >= max_epoch - last_gap:
                 randN = 0.5
+            if torch.rand(1).data < randN:
+                dist_an = torch.exp(factor * (-dist_pn + dist_an) ** indx ) * dist_pn / (
+                        torch.exp(factor * (-dist_an + dist_an) ** indx ) + torch.exp(
+                    factor * (-dist_pn + dist_an) ** indx )) + \
+                          torch.exp(factor * (-dist_an + dist_an) ** indx ) * dist_an / (
+                                  torch.exp(factor * (-dist_an + dist_an) ** indx ) + torch.exp(
+                              factor * (-dist_pn + dist_an) ** indx ))
 
-            if torch.rand(1).item() < randN:
-                w_pn = torch.exp(factor * (-dist_pn + dist_an) ** indx)
-                w_an = torch.exp(factor * (-dist_an + dist_an) ** indx)
-
-                dist_an = (w_pn * dist_pn / (w_an + w_pn + 1e-12)) + \
-                          (w_an * dist_an / (w_an + w_pn + 1e-12))
-
-        # 6. Core Metric Loss Calculation
         y = dist_an.new().resize_as_(dist_an).fill_(1)
 
         if self.margin is not None:
             loss_metric = self.ranking_loss(dist_an, dist_ap, y)
         else:
             loss_metric = self.ranking_loss(dist_an - dist_ap, y)
+
 
         return loss_metric
